@@ -1,14 +1,17 @@
 package memory
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 type Offset struct {
-	GameData     uintptr
-	UnitTable    uintptr
-	UI           uintptr
-	Hover        uintptr
-	Expansion    uintptr
-	RosterOffset uintptr
+	GameData                    uintptr
+	UnitTable                   uintptr
+	UI                          uintptr
+	Hover                       uintptr
+	Expansion                   uintptr
+	RosterOffset                uintptr
+	PanelManagerContainerOffset uintptr
 }
 
 func calculateOffsets(process Process) Offset {
@@ -32,7 +35,7 @@ func calculateOffsets(process Process) Offset {
 	uiOffsetPtr := (pattern - process.moduleBaseAddressPtr) + 10 + uintptr(uiOffset)
 
 	// Hover
-	pattern = process.FindPattern(memory, "\xc6\x84\xc2\x00\x00\x00\x00\x00\x48\x8b\x74\x24\x00", "xxx?????xxxx?")
+	pattern = process.FindPattern(memory, "\xc6\x84\xc2\x00\x00\x00\x00\x00\x48\x8b\x74", "xxx?????xxx")
 	hoverOffset := process.ReadUInt(pattern+3, Uint32) - 1
 
 	// Expansion
@@ -45,12 +48,18 @@ func calculateOffsets(process Process) Offset {
 	offsetPtr = uintptr(process.ReadUInt(pattern-3, Uint32))
 	rosterOffset := pattern - process.moduleBaseAddressPtr + 1 + offsetPtr
 
+	// PanelManagerContainer
+	pattern = process.FindPatternByOperand(memory, "\x48\x89\x05\x00\x00\x00\x00\x48\x85\xDB\x74\x1E", "xxx????xxxxx")
+	bytes = process.ReadBytesFromMemory(pattern, 8)
+	panelManagerContainerOffset := (pattern - process.moduleBaseAddressPtr) // uintptr(binary.LittleEndian.Uint64(bytes))
+
 	return Offset{
-		GameData:     gameDataOffset,
-		UnitTable:    unitTableOffset,
-		UI:           uiOffsetPtr,
-		Hover:        uintptr(hoverOffset),
-		Expansion:    expOffset,
-		RosterOffset: rosterOffset,
+		GameData:                    gameDataOffset,
+		UnitTable:                   unitTableOffset,
+		UI:                          uiOffsetPtr,
+		Hover:                       uintptr(hoverOffset),
+		Expansion:                   expOffset,
+		RosterOffset:                rosterOffset,
+		PanelManagerContainerOffset: panelManagerContainerOffset,
 	}
 }
